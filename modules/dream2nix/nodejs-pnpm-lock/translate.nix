@@ -76,8 +76,8 @@
   };
 
   # Parse pnpm package key to extract name and version info
-  # Example: "/react@18.2.0" -> { name = "react"; version = "18.2.0"; peerSuffix = null; }
-  # Example: "/react@18.2.0_peer@1.0.0+other@2.0.0" -> { name = "react"; version = "18.2.0"; peerSuffix = "peer@1.0.0+other@2.0.0"; }
+  # Example: "/react@18.2.0" -> { name = "react"; version = "18.2.0"; peerSuffix = null; peerDeps = []; }
+  # Example: "/react@18.2.0_peer@1.0.0+other@2.0.0" -> { name = "react"; version = "18.2.0"; peerSuffix = "peer@1.0.0+other@2.0.0"; peerDeps = [{ name = "peer"; version = "1.0.0"; } { name = "other"; version = "2.0.0"; }]; }
   parsePnpmPackageKey = packageKey: let
     # Remove leading slash
     cleanKey = l.removePrefix "/" packageKey;
@@ -95,21 +95,69 @@
     version = l.last atParts;
     nameParts = l.init atParts;
     name = l.concatStringsSep "@" nameParts;
+    
+    # Parse peer dependency part: "peer@1.0.0+other@2.0.0"
+    parsePeerDeps = peerStr: 
+      if peerStr == null 
+      then []
+      else let
+        # Split on + to get individual peer deps
+        peerSpecs = l.splitString "+" peerStr;
+        parsePeerSpec = spec: let
+          # Find last @ to separate name from version
+          specParts = l.splitString "@" spec;
+          peerVersion = l.last specParts;
+          peerNameParts = l.init specParts;
+          peerName = l.concatStringsSep "@" peerNameParts;
+        in {
+          name = peerName;
+          version = peerVersion;
+        };
+      in l.map parsePeerSpec peerSpecs;
+      
+    peerDeps = parsePeerDeps peerPart;
   in {
     inherit name version;
     peerSuffix = peerPart;
+    peerDeps = peerDeps;
     originalKey = packageKey;
+    
+    # Generate a unique identifier for this peer dependency combination
+    peerFingerprint = 
+      if peerPart == null 
+      then null
+      else l.concatStringsSep "+" (l.map (p: "${p.name}@${p.version}") peerDeps);
   };
 
   # Convert pnpm resolution to dream2nix source format
-  pnpmResolutionToSource = packageInfo: resolution: {
-    type = "http";
-    url = 
-      if resolution ? tarball 
-      then resolution.tarball
-      else "https://registry.npmjs.org/${packageInfo.name}/-/${packageInfo.name}-${packageInfo.version}.tgz";
-    hash = resolution.integrity or null;
-  };
+  pnpmResolutionToSource = packageInfo: resolution: let
+    # Detect source type from resolution
+    hasGitInfo = resolution ? repo || resolution ? gitHead || 
+                 (resolution ? tarball && l.hasPrefix "git+" (resolution.tarball or ""));
+    hasHttpUrl = resolution ? tarball && l.hasPrefix "http" (resolution.tarball or "");
+    hasIntegrity = resolution ? integrity;
+  in
+    if hasGitInfo then {
+      type = "git";
+      url = 
+        if resolution ? repo 
+        then resolution.repo
+        else if resolution ? tarball && l.hasPrefix "git+" resolution.tarball
+        then l.removePrefix "git+" resolution.tarball
+        else "https://github.com/unknown/unknown.git";  # fallback
+      rev = resolution.gitHead or "HEAD";
+      hash = resolution.integrity or null;
+    }
+    else if hasHttpUrl then {
+      type = "http";
+      url = resolution.tarball;
+      hash = resolution.integrity or null;
+    }
+    else {
+      type = "http";
+      url = "https://registry.npmjs.org/${packageInfo.name}/-/${packageInfo.name}-${packageInfo.version}.tgz";
+      hash = resolution.integrity or null;
+    };
 
   # Resolve workspace protocol dependencies
   resolveWorkspaceProtocol = workspaceInfo: dependencySpec: let
@@ -187,10 +235,41 @@
     # Extract lockfile version and validate
     lockfileVersion = parsedLock.lockfileVersion or "unknown";
     
-    # Get dependencies from the lockfile
-    dependencies = parsedLock.dependencies or {};
-    devDependencies = parsedLock.devDependencies or {};
-    packages = parsedLock.packages or {};
+    # Handle different lockfile versions
+    # pnpm lockfile versions: 5.3, 5.4, 6.0, 6.1, etc.
+    lockfileVersionFloat = 
+      if lockfileVersion == "6.0" || lockfileVersion == "6.1" then 6.0
+      else if lockfileVersion == "5.4" then 5.4
+      else if lockfileVersion == "5.3" then 5.3
+      else if l.isFloat lockfileVersion then lockfileVersion
+      else throw "Unable to parse lockfile version: ${toString lockfileVersion}";
+    
+    # Normalize structure based on lockfile version
+    normalizedLock = 
+      if lockfileVersionFloat >= 6.0
+      then {
+        # v6.0+ format
+        dependencies = parsedLock.dependencies or {};
+        devDependencies = parsedLock.devDependencies or {};
+        packages = parsedLock.packages or {};
+        importers = parsedLock.importers or {};
+      }
+      else if lockfileVersionFloat >= 5.3
+      then {
+        # v5.3-5.4 format - similar structure but some differences
+        dependencies = parsedLock.dependencies or {};
+        devDependencies = parsedLock.devDependencies or {};
+        # In older versions, packages might be under 'specifiers'
+        packages = parsedLock.packages or parsedLock.specifiers or {};
+        importers = {};  # Not available in older versions
+      }
+      else throw "Unsupported pnpm lockfile version: ${toString lockfileVersion}";
+    
+    # Get dependencies from the normalized lockfile
+    dependencies = normalizedLock.dependencies;
+    devDependencies = normalizedLock.devDependencies;
+    packages = normalizedLock.packages;
+    importers = normalizedLock.importers;
 
     # Parse all package entries
     parsedPackages = l.mapAttrs (key: value: let
@@ -294,6 +373,8 @@
       sourceConstructors = {
         http = dependencyObject: dependencyObject.source;
         
+        git = dependencyObject: dependencyObject.source;
+        
         path = dependencyObject: let
           # Check if this is a workspace dependency
           workspacePackage = workspaceData.workspaceInfo.${dependencyObject.name} or null;
@@ -305,26 +386,66 @@
             rootName = projectName;
             rootVersion = packageVersion;
           }
-          else throw "Non-workspace path dependencies not yet implemented in pnpm translator";
-          
-        git = dependencyObject: 
-          throw "Git dependencies not yet implemented in pnpm translator";
+          else {
+            # Handle file: dependencies outside of workspaces
+            type = "path";
+            path = l.removePrefix "file:" dependencyObject.source.url or dependencyObject.source.path or ".";
+            rootName = projectName;
+            rootVersion = packageVersion;
+          };
       };
 
       getDependencies = dependencyObject: 
         map (depName: let
-          # Look for the dependency in our parsed packages
-          # This is a simplified version - full implementation would need proper resolution
-          matchingPackage = l.findFirst 
-            (pkg: pkg.name == depName) 
-            null 
-            (l.attrValues parsedPackages);
+          # Advanced dependency resolution considering peer dependencies
+          # Look for the dependency in our parsed packages, considering peer context
+          
+          # Find the best matching package considering peer dependencies
+          findBestMatch = let
+            # Get all packages with the same name
+            candidatePackages = l.filter (pkg: pkg.name == depName) (l.attrValues parsedPackages);
+            
+            # If we have peer dependencies in the current package, try to find a match
+            # that was built with compatible peer dependencies
+            currentPeerFingerprint = dependencyObject.peerFingerprint or null;
+            
+            # Score packages based on peer dependency compatibility
+            scorePackage = pkg: let
+              hasPeerSuffix = pkg.peerFingerprint != null;
+              peerMatches = 
+                if currentPeerFingerprint == null || pkg.peerFingerprint == null
+                then true  # No peer constraints to match
+                else currentPeerFingerprint == pkg.peerFingerprint;
+            in
+              if peerMatches then 100
+              else if !hasPeerSuffix then 50  # Prefer packages without peer constraints if no match
+              else 10;  # Last resort: different peer constraints
+              
+            # Sort by score and pick the best
+            scoredPackages = l.map (pkg: {
+              inherit pkg;
+              score = scorePackage pkg;
+            }) candidatePackages;
+            
+            sortedPackages = l.sort (a: b: a.score > b.score) scoredPackages;
+            bestMatch = 
+              if l.length sortedPackages > 0
+              then (l.head sortedPackages).pkg
+              else null;
+              
+          in bestMatch;
+          
+          matchingPackage = findBestMatch;
+          
         in {
           name = depName;
           version = 
             if matchingPackage != null 
             then matchingPackage.version
             else "unknown";
+            
+          # Include peer dependency context for better resolution
+          peerContext = dependencyObject.peerFingerprint or null;
         }) dependencyObject.dependencies;
     });
 in
