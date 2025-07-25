@@ -1,0 +1,58 @@
+lockfileVersion: '6.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      lodash:
+        specifier: ^4.17.21
+        version: 4.17.21
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.3.3
+
+  apps/web-app:
+    dependencies:
+      '@workspace/lib-a':
+        specifier: workspace:*
+        version: link:../../packages/lib-a
+      '@workspace/lib-b':
+        specifier: workspace:*  
+        version: link:../../packages/lib-b
+      express:
+        specifier: ^4.18.0
+        version: 4.18.2
+
+  packages/lib-a:
+    dependencies:
+      lodash:
+        specifier: ^4.17.21
+        version: 4.17.21
+
+  packages/lib-b:
+    dependencies:
+      '@workspace/lib-a':
+        specifier: workspace:^0.1.0
+        version: link:../lib-a
+
+packages:
+
+  /express@4.18.2:
+    resolution: {integrity: sha512-5/PsL6iGPdfQ/lKM1UuielYgv3BUoJfz1aUwU9vHZ+J7gyvwdQXFEBIEIaxeGf0GIcreATNyBExtalisDbuMqQ==}
+    engines: {node: '>= 0.10.0'}
+    dev: false
+
+  /lodash@4.17.21:
+    resolution: {integrity: sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==}
+    dev: false
+
+  /typescript@5.3.3:
+    resolution: {integrity: sha512-pXWcraxM0uxAS+tN0AG/BF2TyqmHO014Z070UsJ+pFvYuRSq8KH8DmWpnbXe0pEPDHXZV3FcAbJkijJ5oNEnWw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+    dev: true

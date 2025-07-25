@@ -1,0 +1,11 @@
+{
+  "name": "web-app",
+  "version": "1.0.0", 
+  "description": "Web application using workspace libraries",
+  "main": "index.js",
+  "dependencies": {
+    "@workspace/lib-a": "workspace:*",
+    "@workspace/lib-b": "workspace:*",
+    "express": "^4.18.0"
+  }
+}

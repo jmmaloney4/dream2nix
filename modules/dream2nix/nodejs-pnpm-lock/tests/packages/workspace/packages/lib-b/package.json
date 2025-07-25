@@ -1,0 +1,9 @@
+{
+  "name": "@workspace/lib-b", 
+  "version": "0.2.0",
+  "description": "Library B in workspace",
+  "main": "index.js",
+  "dependencies": {
+    "@workspace/lib-a": "workspace:^0.1.0"
+  }
+}
