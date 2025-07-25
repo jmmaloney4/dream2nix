@@ -106,6 +106,7 @@ in {
   # Test 3: Lockfile version handling
   lockfileVersionHandling = let
     testLockfiles = [
+      { version = "9.0"; expected = "supported"; }
       { version = "6.0"; expected = "supported"; }
       { version = "6.1"; expected = "supported"; }
       { version = "5.4"; expected = "supported"; }
@@ -116,12 +117,14 @@ in {
     checkVersion = version: let
       # Simple version comparison using string operations
       lockfileVersionFloat = 
-        if version == "6.0" || version == "6.1" then 6.0
+        if version == "9.0" then 9.0
+        else if version == "6.0" || version == "6.1" then 6.0
         else if version == "5.4" then 5.4  
         else if version == "5.3" then 5.3
         else 4.0;  # fallback
     in
-      if lockfileVersionFloat >= 6.0 then "supported-v6+"
+      if lockfileVersionFloat >= 9.0 then "supported-v9+"
+      else if lockfileVersionFloat >= 6.0 then "supported-v6+"
       else if lockfileVersionFloat >= 5.3 then "supported-v5.3+"
       else "unsupported";
       

@@ -236,9 +236,10 @@
     lockfileVersion = parsedLock.lockfileVersion or "unknown";
     
     # Handle different lockfile versions
-    # pnpm lockfile versions: 5.3, 5.4, 6.0, 6.1, etc.
+    # pnpm lockfile versions: 5.3, 5.4, 6.0, 6.1, 9.0, etc.
     lockfileVersionFloat = 
-      if lockfileVersion == "6.0" || lockfileVersion == "6.1" then 6.0
+      if lockfileVersion == "9.0" then 9.0
+      else if lockfileVersion == "6.0" || lockfileVersion == "6.1" then 6.0
       else if lockfileVersion == "5.4" then 5.4
       else if lockfileVersion == "5.3" then 5.3
       else if l.isFloat lockfileVersion then lockfileVersion
@@ -246,13 +247,27 @@
     
     # Normalize structure based on lockfile version
     normalizedLock = 
-      if lockfileVersionFloat >= 6.0
+      if lockfileVersionFloat >= 9.0
+      then {
+        # v9.0+ format - uses importers structure heavily
+        dependencies = parsedLock.dependencies or {};
+        devDependencies = parsedLock.devDependencies or {};
+        packages = parsedLock.packages or {};
+        importers = parsedLock.importers or {};
+        # Extract root-level dependencies from importers."."
+        rootImporter = (parsedLock.importers or {})."." or {};
+        rootDependencies = rootImporter.dependencies or {};
+        rootDevDependencies = rootImporter.devDependencies or {};
+      }
+      else if lockfileVersionFloat >= 6.0
       then {
         # v6.0+ format
         dependencies = parsedLock.dependencies or {};
         devDependencies = parsedLock.devDependencies or {};
         packages = parsedLock.packages or {};
         importers = parsedLock.importers or {};
+        rootDependencies = {};
+        rootDevDependencies = {};
       }
       else if lockfileVersionFloat >= 5.3
       then {
@@ -262,12 +277,21 @@
         # In older versions, packages might be under 'specifiers'
         packages = parsedLock.packages or parsedLock.specifiers or {};
         importers = {};  # Not available in older versions
+        rootDependencies = {};
+        rootDevDependencies = {};
       }
       else throw "Unsupported pnpm lockfile version: ${toString lockfileVersion}";
     
     # Get dependencies from the normalized lockfile
-    dependencies = normalizedLock.dependencies;
-    devDependencies = normalizedLock.devDependencies;
+    # For v9.0+, prioritize root-level dependencies from importers
+    dependencies = 
+      if normalizedLock ? rootDependencies && normalizedLock.rootDependencies != {}
+      then normalizedLock.rootDependencies
+      else normalizedLock.dependencies;
+    devDependencies = 
+      if normalizedLock ? rootDevDependencies && normalizedLock.rootDevDependencies != {}
+      then normalizedLock.rootDevDependencies
+      else normalizedLock.devDependencies;
     packages = normalizedLock.packages;
     importers = normalizedLock.importers;
 
