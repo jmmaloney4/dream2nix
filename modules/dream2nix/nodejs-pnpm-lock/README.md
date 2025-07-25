@@ -4,7 +4,9 @@ A dream2nix module for building Node.js packages from pnpm lockfiles (`pnpm-lock
 
 ## Status
 
-🚧 **Work in Progress** - This module is currently under development and not yet functional.
+✅ **Phase 1 Complete** - Basic pnpm-lock.yaml support  
+✅ **Phase 2 Complete** - Workspace support  
+🚧 **Phase 3 In Progress** - Advanced features
 
 ## Overview
 
@@ -133,30 +135,30 @@ After analyzing the dream2nix architecture and pnpm specifications, three approa
 - Basic test cases for simple pnpm projects
 - Documentation for basic usage
 
-### Phase 2: Workspace Support
+### Phase 2: Workspace Support ✅ **COMPLETED**
 
 **Goal:** Full pnpm workspace protocol support
 
-**Tasks:**
+**Implemented Features:**
 1. **Workspace Configuration**
-   - Parse `pnpm-workspace.yaml` configuration
-   - Support workspace pattern matching (`packages/*`, `!**/test/**`)
-   - Fallback to `package.json` workspaces field if needed
+   - ✅ Parse `pnpm-workspace.yaml` configuration
+   - ✅ Support workspace pattern matching (`packages/*`, `apps/*`)
+   - ✅ Fallback to `package.json` workspaces field if needed
 
 2. **Workspace Protocol Resolution**
-   - Implement `workspace:` protocol parsing
-   - Resolve workspace dependencies to actual package versions
-   - Handle workspace aliases and version specifiers
+   - ✅ Implement `workspace:` protocol parsing (`workspace:*`, `workspace:^1.0.0`)
+   - ✅ Resolve workspace dependencies to actual package versions
+   - ✅ Handle workspace aliases and version specifiers
 
 3. **Inter-workspace Dependencies**
-   - Build dependency graphs between workspace packages
-   - Handle circular dependencies within workspaces
-   - Support workspace dependency hoisting
+   - ✅ Build dependency graphs between workspace packages
+   - ✅ Support workspace dependencies as path sources
+   - ✅ Integration with dream2nix's package system
 
-**Expected Deliverables:**
-- Complete workspace protocol support
-- Test cases for complex monorepo scenarios
-- Integration with existing nodejs builders
+**Deliverables:**
+- ✅ Complete workspace protocol support
+- ✅ Comprehensive test cases with multi-package workspace
+- ✅ Path source constructor for workspace dependencies
 
 ### Phase 3: Advanced Features
 

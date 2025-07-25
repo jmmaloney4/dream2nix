@@ -56,22 +56,37 @@ let
 in parsed.lockfileVersion'
 ```
 
-### 3. Test with the Included Test Package
+### 4. Workspace Parsing Test
 
-The module includes a basic test package. You can test it like this:
+Test the workspace functionality:
 
 ```bash
-cd modules/dream2nix/nodejs-pnpm-lock/tests/packages/basic
-
-# Check if files are present
-ls -la
-
-# Test YAML parsing directly
-yq eval -o=json pnpm-lock.yaml
-
-# Test the package configuration
-cat package.json
+# From the nodejs-pnpm-lock directory
+nix eval --impure -f workspace-test.nix --json
 ```
+
+This should show workspace packages being discovered and workspace protocol resolution working.
+
+### 5. Test with the Included Test Packages
+
+The module includes multiple test packages:
+
+**Basic Package Test:**
+```bash
+cd modules/dream2nix/nodejs-pnpm-lock/tests/packages/basic
+ls -la  # Should show package.json, pnpm-lock.yaml, index.js
+```
+
+**Workspace Test:**
+```bash  
+cd modules/dream2nix/nodejs-pnpm-lock/tests/packages/workspace
+ls -la  # Should show pnpm-workspace.yaml, packages/, apps/
+
+# Check workspace structure
+tree .
+```
+
+Both test packages include complete examples with dependencies and realistic project structures.
 
 ### 4. Manual Integration Test
 
