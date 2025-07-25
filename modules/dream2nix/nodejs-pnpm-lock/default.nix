@@ -2,6 +2,8 @@
   config,
   dream2nix,
   lib,
+  runCommandLocal,
+  yq,
   ...
 }: let
   l = lib // builtins;
@@ -21,11 +23,12 @@
     projectRelPath = "";
     workspaces = cfg.workspaces;
     workspaceParent = "";
-    source = cfg.src;
+    source = cfg.source;
     tree = prepareSourceTree {source = cfg.source;};
     noDev = ! cfg.withDevDependencies;
     nodejs = "unknown";
     inherit (cfg) packageJson pnpmLock pnpmWorkspace;
+    deps = {inherit runCommandLocal yq;};
   };
 in {
   imports = [
@@ -50,17 +53,17 @@ in {
     inherit dreamLock;
     packageJson = l.fromJSON (l.readFile cfg.packageJsonFile);
     pnpmLock = 
-      if cfg.pnpmLockFile != null
+      if cfg.pnpmLockFile != null && l.pathExists cfg.pnpmLockFile
       then 
-        # TODO: Implement YAML parsing via IFD
-        # This will require creating a derivation that uses yq to convert YAML to JSON
-        throw "pnpm-lock.yaml parsing not yet implemented - requires IFD translator"
+        # YAML parsing is handled in translate.nix via IFD
+        {}  # Empty here since translate.nix will parse directly from file
       else lib.mkDefault {};
     pnpmWorkspace = 
-      if cfg.pnpmWorkspaceFile != null
+      if cfg.pnpmWorkspaceFile != null && l.pathExists cfg.pnpmWorkspaceFile
       then 
         # TODO: Implement pnpm-workspace.yaml parsing
-        throw "pnpm-workspace.yaml parsing not yet implemented"
+        # For now, return empty - workspace support is Phase 2
+        {}
       else lib.mkDefault {};
   };
 }
