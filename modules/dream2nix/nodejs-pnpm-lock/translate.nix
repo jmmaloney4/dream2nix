@@ -29,10 +29,14 @@
     mainPart = l.head parts;
     peerPart = if l.length parts > 1 then l.concatStringsSep "_" (l.tail parts) else null;
     
-    # Parse main part: "react@18.2.0"
-    atIndex = l.stringLength mainPart - l.stringLength (l.removePrefix "@" (l.reverseString mainPart));
-    name = l.substring 0 atIndex mainPart;
-    version = l.substring (atIndex + 1) (l.stringLength mainPart) mainPart;
+    # Parse main part: "react@18.2.0" or "@types/node@20.0.0"
+    # Find the last @ in the string to separate name from version
+    atParts = l.splitString "@" mainPart;
+    # For scoped packages like "@types/node@20.0.0", we need the last part as version
+    # and everything before the last @ as name
+    version = l.last atParts;
+    nameParts = l.init atParts;
+    name = l.concatStringsSep "@" nameParts;
   in {
     inherit name version;
     peerSuffix = peerPart;

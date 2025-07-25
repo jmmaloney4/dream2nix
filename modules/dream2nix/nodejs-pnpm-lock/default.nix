@@ -3,7 +3,7 @@
   dream2nix,
   lib,
   runCommandLocal,
-  yq,
+  yq-go,
   ...
 }: let
   l = lib // builtins;
@@ -28,7 +28,7 @@
     noDev = ! cfg.withDevDependencies;
     nodejs = "unknown";
     inherit (cfg) packageJson pnpmLock pnpmWorkspace;
-    deps = {inherit runCommandLocal yq;};
+    deps = {inherit runCommandLocal; yq = yq-go;};
   };
 in {
   imports = [
@@ -45,7 +45,7 @@ in {
       fetchurl
       nix
       runCommandLocal
-      yq
+      yq-go
       ;
   };
   
